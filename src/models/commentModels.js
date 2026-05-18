@@ -6,6 +6,7 @@ export const getCommentsByReportId = async (reportId) => {
             c.id,
             c.body,
             c.created_at,
+            c.user_id,
             u.username AS pengomentar
         FROM 
             comments c
