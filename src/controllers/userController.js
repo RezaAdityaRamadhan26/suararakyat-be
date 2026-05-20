@@ -55,12 +55,12 @@ export const getUserById = async (req, res) => {
 
 export const createNewUser = async (req, res) => {
     try {
-        const { username, password, role } = req.body;
+        const { username, email, password, role } = req.body;
 
-        if (!username || !password || !role) {
+        if (!username || !email || !password || !role) {
             return res.status(400).json({
                 success: false,
-                message: 'Username, password, dan role wajib diisi.'
+                message: 'Username, email, password, dan role wajib diisi.'
             });
         }
 
@@ -75,7 +75,7 @@ export const createNewUser = async (req, res) => {
 
         const hashedPassword = await bcrypt.hash(password, 10);
         
-        await createUser(username, hashedPassword, role);
+        await createUser(username, email, hashedPassword, role);
 
         res.status(201).json({
             success: true,
@@ -92,7 +92,7 @@ export const createNewUser = async (req, res) => {
 
 export const updateExistingUser = async (req, res) => {
     try {
-        const { username, password, role } = req.body;
+        const { username, email, password, role } = req.body;
         const id = req.params.id;
 
         const user = await findUserById(id);
@@ -110,7 +110,13 @@ export const updateExistingUser = async (req, res) => {
             hashedPassword = await bcrypt.hash(password, 10);
         }
 
-        await updateUser(id, username || user.username, hashedPassword, role || user.role);
+        await updateUser(
+            id,
+            username || user.username,
+            email || user.email,
+            hashedPassword,
+            role || user.role
+        );
 
         res.json({
             success: true,

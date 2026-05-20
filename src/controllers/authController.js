@@ -1,30 +1,53 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { findUserByUsername, createUser, findUserById, updateUser } from '../models/userModels.js';
+import { 
+    findUserByUsername, 
+    findUserByEmail,
+    createUser, 
+    findUserById, 
+    updateUser 
+} from '../models/userModels.js';
 
 export const register = async (req, res) => {
     try {
-        const { username, password } = req.body;
+        const { username, email, password } = req.body;
 
-        if (!username || !password) {
+        if (!username || !email || !password) {
             return res.status(400).json({
                 success: false,
-                message: 'Username dan password wajib diisi.'
+                message: 'Username, email, dan password wajib diisi.'
             });
         }
 
-        const existingUser = await findUserByUsername(username);
-        
-        if (existingUser) {
+        // Validasi format email
+        const emailRegex = /^\S+@\S+\.\S+$/;
+        if (!emailRegex.test(email)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Format email tidak valid.'
+            });
+        }
+
+        // Cek duplikasi username
+        const existingUsername = await findUserByUsername(username);
+        if (existingUsername) {
             return res.status(400).json({
                 success: false,
                 message: 'Username sudah digunakan.'
             });
         }
 
+        // Cek duplikasi email
+        const existingEmail = await findUserByEmail(email);
+        if (existingEmail) {
+            return res.status(400).json({
+                success: false,
+                message: 'Email sudah digunakan.'
+            });
+        }
+
         const hashedPassword = await bcrypt.hash(password, 10);
-        
-        await createUser(username, hashedPassword, 'user');
+        await createUser(username, email, hashedPassword, 'user');
 
         res.status(201).json({
             success: true,
@@ -51,7 +74,7 @@ export const login = async (req, res) => {
         }
 
         const user = await findUserByUsername(username);
-        
+
         if (!user) {
             return res.status(401).json({
                 success: false,
@@ -60,7 +83,7 @@ export const login = async (req, res) => {
         }
 
         const isMatch = await bcrypt.compare(password, user.password);
-        
+
         if (!isMatch) {
             return res.status(401).json({
                 success: false,
@@ -69,15 +92,13 @@ export const login = async (req, res) => {
         }
 
         const token = jwt.sign(
-            { 
-                id: user.id, 
-                username: user.username, 
-                role: user.role 
+            {
+                id: user.id,
+                username: user.username,
+                role: user.role
             },
             process.env.JWT_SECRET,
-            { 
-                expiresIn: '1d' 
-            }
+            { expiresIn: '1d' }
         );
 
         res.json({
@@ -115,6 +136,7 @@ export const getProfile = async (req, res) => {
             data: {
                 id: user.id,
                 username: user.username,
+                email: user.email,
                 role: user.role,
                 created_at: user.created_at
             }
@@ -127,13 +149,14 @@ export const getProfile = async (req, res) => {
 export const updateProfile = async (req, res) => {
     try {
         const userId = req.user.id;
-        const { username, password } = req.body;
+        const { username, email, password } = req.body;
 
         const currentUser = await findUserById(userId);
         if (!currentUser) {
             return res.status(404).json({ success: false, message: 'User tidak ditemukan' });
         }
 
+        // Cek duplikasi username (jika diubah)
         if (username && username !== currentUser.username) {
             const existing = await findUserByUsername(username);
             if (existing) {
@@ -141,14 +164,27 @@ export const updateProfile = async (req, res) => {
             }
         }
 
+        // Cek duplikasi email (jika diubah)
+        if (email && email !== currentUser.email) {
+            const emailRegex = /^\S+@\S+\.\S+$/;
+            if (!emailRegex.test(email)) {
+                return res.status(400).json({ success: false, message: 'Format email tidak valid.' });
+            }
+            const existingEmail = await findUserByEmail(email);
+            if (existingEmail) {
+                return res.status(400).json({ success: false, message: 'Email sudah digunakan oleh pengguna lain' });
+            }
+        }
+
         const targetUsername = username || currentUser.username;
+        const targetEmail = email || currentUser.email;
         let targetPassword = null;
 
         if (password) {
             targetPassword = await bcrypt.hash(password, 10);
         }
 
-        await updateUser(userId, targetUsername, targetPassword, currentUser.role);
+        await updateUser(userId, targetUsername, targetEmail, targetPassword, currentUser.role);
 
         res.json({
             success: true,
@@ -156,6 +192,7 @@ export const updateProfile = async (req, res) => {
             data: {
                 id: userId,
                 username: targetUsername,
+                email: targetEmail,
                 role: currentUser.role
             }
         });

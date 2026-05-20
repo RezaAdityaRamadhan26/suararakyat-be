@@ -3,6 +3,7 @@ import {
     getReports, 
     getReportDetail, 
     createNewReport, 
+    editReport,
     updateStatus, 
     removeReport 
 } from '../controllers/reportController.js';
@@ -15,24 +16,22 @@ router.get('/', getReports);
 
 router.get('/:id', getReportDetail);
 
-router.post(
-    '/', 
-    authenticate, 
-    upload.single('image'), 
-    createNewReport
+router.post('/', authenticate, upload.single('image'), createNewReport);
+
+router.put(
+    '/:id',
+    authenticate,
+    upload.single('image'),
+    editReport
 );
 
 router.put(
-    '/:id/status', 
-    authenticate, 
-    authorizeRoles('admin', 'super_admin'), 
+    '/:id/status',
+    authenticate,
+    authorizeRoles('admin', 'super_admin'),
     updateStatus
 );
 
-router.delete(
-    '/:id', 
-    authenticate, 
-    removeReport
-);
+router.delete('/:id', authenticate, removeReport);
 
 export default router;
