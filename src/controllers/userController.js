@@ -142,6 +142,14 @@ export const removeUser = async (req, res) => {
             });
         }
 
+        // Cegah pengguna menghapus akun mereka sendiri yang sedang aktif
+        if (req.user && req.user.id.toString() === req.params.id.toString()) {
+            return res.status(400).json({
+                success: false,
+                message: 'Anda tidak dapat menghapus akun Anda sendiri.'
+            });
+        }
+
         await deleteUser(req.params.id);
         
         res.json({
