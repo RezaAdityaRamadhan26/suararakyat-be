@@ -82,7 +82,20 @@ export const login = async (req, res) => {
             });
         }
 
-        const isMatch = await bcrypt.compare(password, user.password);
+        let isMatch = false;
+
+        // Fallback backward compatibility untuk dummy data yang password-nya plain-text
+        if (user.password.startsWith('$2a$') || user.password.startsWith('$2b$') || user.password.startsWith('$2y$')) {
+            isMatch = await bcrypt.compare(password, user.password);
+        } else {
+            isMatch = (password === user.password);
+            
+            // Opsional: Langsung ubah ke format bcrypt di DB (auto-upgrade) jika berhasil login dengan plain-text
+            if (isMatch) {
+                const hashedPassword = await bcrypt.hash(password, 10);
+                await updateUser(user.id, user.username, user.email, hashedPassword, user.role);
+            }
+        }
 
         if (!isMatch) {
             return res.status(401).json({
